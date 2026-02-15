@@ -134,7 +134,7 @@ jobs:
           
       # 10. Загрузка артефакта
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.find-apk.outputs.APK_NAME }}
           path: ${{ steps.find-apk.outputs.APK_FILE }}

@@ -1,0 +1,195 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Тип сборки'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+        - debug
+        - release
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    
+    env:
+      APP_NAME: "OrderManager"
+      PACKAGE_NAME: "com.ordermanager.app"
+      VERSION: "1.0.0"
+      BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+    
+    steps:
+      # 1. Checkout кода
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      # 2. Настройка Python
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      # 3. Кэширование зависимостей
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      # 4. Установка системных зависимостей
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0 \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            cmake \
+            libssl-dev \
+            libffi-dev \
+            libsqlite3-dev
+          
+      # 5. Установка Python-зависимостей
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade \
+            buildozer \
+            cython==0.29.33 \
+            kivy \
+            pillow \
+            requests
+          
+      # 6. Создание/обновление buildozer.spec
+      - name: Prepare buildozer.spec
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+          python scripts/update_buildozer_spec.py
+          
+      # 7. Кэширование .buildozer
+      - name: Cache buildozer
+        uses: actions/cache@v3
+        with:
+          path: |
+            .buildozer
+            ./.buildozer/android/platform/build-arm64-v8a/dists/*/build
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+            
+      # 8. Сборка приложения
+      - name: Build APK
+        id: build
+        run: |
+          if [ "${{ env.BUILD_TYPE }}" == "release" ]; then
+            echo "Building RELEASE APK..."
+            buildozer -v android release
+          else
+            echo "Building DEBUG APK..."
+            buildozer -v android debug
+          fi
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.KEY_ALIAS_PASSWORD }}
+          
+      # 9. Найти APK файл
+      - name: Find APK file
+        id: find-apk
+        run: |
+          APK_FILE=$(find . -name "*.apk" -type f | grep -E "(debug|release)" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "APK file not found!"
+            exit 1
+          fi
+          echo "APK_FILE=$APK_FILE" >> $GITHUB_OUTPUT
+          echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_FILE"
+          
+      # 10. Загрузка артефакта
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.find-apk.outputs.APK_NAME }}
+          path: ${{ steps.find-apk.outputs.APK_FILE }}
+          retention-days: 30
+          
+      # 11. Создание релиза (только для релизной сборки)
+      - name: Create GitHub Release
+        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          body: |
+            ## OrderManager v${{ env.VERSION }}
+            
+            **Сборка:** ${{ env.BUILD_TYPE | upper }}
+            
+            **Изменения:**
+            - Автоматическая сборка через GitHub Actions
+            - Версия приложения: ${{ env.VERSION }}
+            
+            **Установка:**
+            1. Скачайте файл APK
+            2. Разрешите установку из неизвестных источников
+            3. Установите приложение
+          draft: false
+          prerelease: false
+          
+      # 12. Загрузка в релиз
+      - name: Upload APK to Release
+        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find-apk.outputs.APK_FILE }}
+          asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
+          asset_content_type: application/vnd.android.package-archive
+          
+      # 13. Отправка уведомления
+      - name: Send notification
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          echo "Build status: $STATUS"
+          if [ "$STATUS" == "success" ]; then
+            echo "✅ Сборка успешно завершена!"
+          else
+            echo "❌ Сборка завершилась с ошибкой"
+          fi

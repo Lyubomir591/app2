@@ -1,4 +1,4 @@
-name: Android Build
+name: Android Build Pipeline (2026)
 
 on:
   push:
@@ -13,61 +13,90 @@ on:
         default: 'debug'
         type: choice
         options:
-        - debug
-        - release
+          - debug
+          - release
+      clean_build:
+        description: 'Полная очистка перед сборкой'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  APP_NAME: "OrderManager"
+  PACKAGE_NAME: "org.ordermanager.ordermanager"
+  BUILD_TOOLS_VERSION: "34.0.0"
+  PYTHON_VERSION: "3.11"
+  BUILDOZER_VERSION: "1.5.0"
 
 jobs:
-  build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    
-    env:
-      APP_NAME: "OrderManager"
-      PACKAGE_NAME: "com.ordermanager.app"
-      VERSION: "1.0.0"
-      BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
-      ANDROID_HOME: $HOME/android-sdk
-    
+  validate:
+    name: Валидация кода
+    runs-on: ubuntu-22.04
     steps:
-      # 1. Checkout кода
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        
-      # 2. Установка Java 17 (КРИТИЧЕСКИ ВАЖНО!)
-      - name: Setup Java 17
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      
+      - name: Установка Python
+        uses: actions/setup-python@v5
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          
-      # 3. Настройка Python 3.10
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-          
-      # 4. Кэширование зависимостей pip
-      - name: Cache pip packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            
-      # 5. Установка системных зависимостей (ИСПРАВЛЕНО: добавлен репозиторий universe)
-      - name: Install system dependencies
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Установка зависимостей
         run: |
-          # Включаем репозиторий universe для libncurses5
+          pip install --upgrade pip
+          pip install flake8 pyflakes
+          flake8 . --exclude=.buildozer,bin,.git --max-line-length=120
+      
+      - name: Проверка синтаксиса JSON
+        run: |
+          find . -name "*.json" -type f -exec python -m json.tool {} \; > /dev/null || exit 1
+
+  build-android:
+    name: Сборка APK/AAB
+    needs: validate
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout кода
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Кэширование зависимостей Python
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/bin
+          key: ${{ runner.os }}-py-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-py-${{ env.PYTHON_VERSION }}-
+
+      - name: Установка системных зависимостей
+        run: |
           sudo apt-get update
-          sudo apt-get install -y software-properties-common
-          sudo add-apt-repository universe
-          sudo apt-get update
-          
-          # Установка всех зависимостей
-          sudo apt-get install -y \
-            build-essential \
+          sudo apt-get install -y --no-install-recommends \
             git \
+            cmake \
+            autoconf \
+            libtool \
+            pkg-config \
+            libssl-dev \
+            libffi-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            libreadline-dev \
+            liblzma-dev \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            libusb-1.0-0 \
+            libudev-dev \
+            unzip \
+            zip \
+            wget \
+            curl \
             ffmpeg \
             libsdl2-dev \
             libsdl2-image-dev \
@@ -77,315 +106,135 @@ jobs:
             libswscale-dev \
             libavformat-dev \
             libavcodec-dev \
-            zlib1g-dev \
-            libgstreamer1.0 \
+            libgstreamer1.0-dev \
             gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            cmake \
-            libssl-dev \
-            libffi-dev \
-            libsqlite3-dev \
-            unzip \
-            libncurses5
-            
-      # 6. Установка Android SDK через официальный action
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          build-tools: '33.0.0'
-          platforms: 'android-33'
-          ndk: '25.1.8937393'
-          licenses: |
-            android-sdk-preview-license
-            android-sdk-license
-            google-gdk-license
-            google-gdk-license-2
-            google-gdk-license-3
-            google-gdk-license-4
-            google-gdk-license-5
-            google-gdk-license-6
-            google-gdk-license-7
-            google-gdk-license-8
-            google-gdk-license-9
-            google-gdk-license-10
-            google-gdk-license-11
-            google-gdk-license-12
-            google-gdk-license-13
-            google-gdk-license-14
-            google-gdk-license-15
-            google-gdk-license-16
-            google-gdk-license-17
-            google-gdk-license-18
-            google-gdk-license-19
-            google-gdk-license-20
-            google-gdk-license-21
-            google-gdk-license-22
-            google-gdk-license-23
-            google-gdk-license-24
-            google-gdk-license-25
-            google-gdk-license-26
-            google-gdk-license-27
-            google-gdk-license-28
-            google-gdk-license-29
-            google-gdk-license-30
-            google-gdk-license-31
-            google-gdk-license-32
-            google-gdk-license-33
-            google-gdk-license-34
-            google-gdk-license-35
-            google-gdk-license-36
-            google-gdk-license-37
-            google-gdk-license-38
-            google-gdk-license-39
-            google-gdk-license-40
-            google-gdk-license-41
-            google-gdk-license-42
-            google-gdk-license-43
-            google-gdk-license-44
-            google-gdk-license-45
-            google-gdk-license-46
-            google-gdk-license-47
-            google-gdk-license-48
-            google-gdk-license-49
-            google-gdk-license-50
-            google-gdk-license-51
-            google-gdk-license-52
-            google-gdk-license-53
-            google-gdk-license-54
-            google-gdk-license-55
-            google-gdk-license-56
-            google-gdk-license-57
-            google-gdk-license-58
-            google-gdk-license-59
-            google-gdk-license-60
-            google-gdk-license-61
-            google-gdk-license-62
-            google-gdk-license-63
-            google-gdk-license-64
-            google-gdk-license-65
-            google-gdk-license-66
-            google-gdk-license-67
-            google-gdk-license-68
-            google-gdk-license-69
-            google-gdk-license-70
-            google-gdk-license-71
-            google-gdk-license-72
-            google-gdk-license-73
-            google-gdk-license-74
-            google-gdk-license-75
-            google-gdk-license-76
-            google-gdk-license-77
-            google-gdk-license-78
-            google-gdk-license-79
-            google-gdk-license-80
-            google-gdk-license-81
-            google-gdk-license-82
-            google-gdk-license-83
-            google-gdk-license-84
-            google-gdk-license-85
-            google-gdk-license-86
-            google-gdk-license-87
-            google-gdk-license-88
-            google-gdk-license-89
-            google-gdk-license-90
-            google-gdk-license-91
-            google-gdk-license-92
-            google-gdk-license-93
-            google-gdk-license-94
-            google-gdk-license-95
-            google-gdk-license-96
-            google-gdk-license-97
-            google-gdk-license-98
-            google-gdk-license-99
-            google-gdk-license-100
-            
-      # 7. Проверка установки и настройки окружения
-      - name: Verify environment setup
+            gstreamer1.0-plugins-good
+
+      - name: Установка Python и зависимостей
         run: |
-          echo "=== Environment Check ==="
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          echo "PATH: $PATH"
-          
-          echo -e "\n=== Java Version ==="
-          java -version
-          
-          echo -e "\n=== SDK Manager ==="
-          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
-            echo "SDK Manager: OK"
-          else
-            echo "SDK Manager: NOT FOUND"
-            exit 1
-          fi
-          
-      # 8. Установка Python-зависимостей
-      - name: Install Python dependencies
+          python -m pip install --upgrade pip setuptools wheel
+          pip install "buildozer==${BUILDOZER_VERSION}" "Cython==3.0.10" "kivy[base]==2.3.0"
+          pip install -r requirements.txt
+
+      - name: Подготовка ресурсов
         run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade \
-            buildozer==1.5.0 \
-            cython==0.29.33 \
-            kivy==2.2.1 \
-            pillow>=9.0.0 \
-            requests>=2.28.0
-          
-      # 9. Проверка и обновление buildozer.spec
-      - name: Check and update buildozer.spec
-        run: |
-          if [ ! -f buildozer.spec ]; then
-            echo "ERROR: buildozer.spec not found!"
-            exit 1
+          mkdir -p assets
+          # Генерация заглушек если нет реальных иконок
+          if [ ! -f assets/icon.png ]; then
+            convert -size 512x512 xc:#FFD700 -gravity center -pointsize 200 -fill '#0A0A0A' -annotate +0+0 "OM" assets/icon.png
           fi
-          
-          # Установка стабильных версий Android SDK
-          sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
-          sed -i 's/android\.minapi\s*=\s*.*/android.minapi = 21/' buildozer.spec
-          sed -i 's/android\.ndk\s*=\s*.*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
-          sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
-          
-          # Автоматическое принятие лицензий
-          if ! grep -q "android.accept_sdk_license" buildozer.spec; then
-            echo "android.accept_sdk_license = True" >> buildozer.spec
-          else
-            sed -i 's/android\.accept_sdk_license\s*=\s*.*/android.accept_sdk_license = True/' buildozer.spec
+          if [ ! -f assets/splash.png ]; then
+            convert -size 1080x1920 xc:#0A0A0A -gravity center -pointsize 80 -fill '#FFD700' -annotate +0+0 "OrderManager" assets/splash.png
           fi
-          
-          # Использование современного синтаксиса bootstrap
-          if grep -q "android\.bootstrap" buildozer.spec; then
-            sed -i 's/android\.bootstrap\s*=\s*\(.*\)/p4a.bootstrap = \1/' buildozer.spec
-          elif ! grep -q "p4a\.bootstrap" buildozer.spec; then
-            echo "p4a.bootstrap = sdl2" >> buildozer.spec
-          fi
-          
-          echo -e "\n=== Buildozer Configuration ==="
-          grep -E "^(android\.api|android\.minapi|android\.ndk|android\.build_tools|p4a\.bootstrap|android\.accept_sdk_license)" buildozer.spec
-          
-      # 10. Кэширование .buildozer для ускорения сборки
-      - name: Cache buildozer
-        uses: actions/cache@v3
+
+      - name: Кэширование .buildozer
+        uses: actions/cache@v4
         with:
           path: |
             .buildozer
-            ./.buildozer/android/platform/build-arm64-v8a/dists/*/build
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+            ~/.gradle
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-${{ github.sha }}
           restore-keys: |
+            ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-
             ${{ runner.os }}-buildozer-
-            
-      # 11. Сборка приложения (ИСПРАВЛЕНО: правильный синтаксис условия)
-      - name: Build APK
+
+      - name: Очистка перед сборкой (если требуется)
+        if: ${{ github.event.inputs.clean_build == 'true' }}
+        run: |
+          rm -rf .buildozer
+          buildozer android clean
+
+      - name: Сборка приложения
         id: build
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.KEY_ALIAS_PASSWORD }}
         run: |
-          echo "=== Starting APK Build ==="
-          echo "Build Type: ${{ env.BUILD_TYPE }}"
+          echo "=== Начало сборки ==="
+          echo "Тип сборки: ${{ github.event.inputs.build_type || 'debug' }}"
           
-          if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
-            echo "Building RELEASE APK..."
-            buildozer -v android release
-          else
-            echo "Building DEBUG APK..."
-            buildozer -v android debug
-          fi
-          
-          echo "=== Build Completed ==="
-          
-      # 12. Найти и проверить собранный файл APK
-      - name: Find and verify APK file
-        id: find-apk
-        run: |
-          echo "=== Searching for APK ==="
-          
-          # Поиск файла APK
-          APK_FILE=$(find . -name "*.apk" -type f | grep -E "(debug|release)" | head -n 1)
-          
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK file not found!"
-            echo "Checking bin directory:"
-            ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
+          if [ "${{ github.event.inputs.build_type || 'debug' }}" == "release" ] && [ -z "${KEYSTORE_FILE}" ]; then
+            echo "❌ Ошибка: Для релизной сборки требуется keystore в секретах!"
             exit 1
           fi
           
-          echo "APK found: $APK_FILE"
-          
-          # Проверка размера файла
-          APK_SIZE=$(stat -c%s "$APK_FILE" 2>/dev/null || stat -f%z "$APK_FILE")
-          echo "APK size: $APK_SIZE bytes"
-          
-          # Проверка, что файл не пустой
-          if [ "$APK_SIZE" -lt 1000000 ]; then
-            echo "WARNING: APK file seems too small (< 1MB)"
+          # Сохранение keystore если есть
+          if [ -n "${KEYSTORE_FILE}" ]; then
+            echo "${KEYSTORE_FILE}" | base64 -d > release.keystore
+            export P4A_RELEASE_KEYSTORE="$(pwd)/release.keystore"
+            export P4A_RELEASE_KEYSTORE_PASSWD="${KEYSTORE_PASSWORD}"
+            export P4A_RELEASE_KEYALIAS="${KEY_ALIAS}"
+            export P4A_RELEASE_KEYALIAS_PASSWD="${KEY_ALIAS_PASSWORD}"
           fi
           
-          # Сохранение в вывод
-          echo "APK_FILE=$APK_FILE" >> $GITHUB_OUTPUT
-          echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
+          # Сборка
+          if [ "${{ github.event.inputs.build_type || 'debug' }}" == "release" ]; then
+            echo "Сборка РЕЛИЗНОЙ версии..."
+            buildozer -v android release
+          else
+            echo "Сборка ОТЛАДОЧНОЙ версии..."
+            buildozer -v android debug
+          fi
           
-          echo "=== APK Verification Complete ==="
+          # Поиск результата
+          APK_FILE=$(find bin -name "*.apk" 2>/dev/null | head -n1)
+          AAB_FILE=$(find bin -name "*.aab" 2>/dev/null | head -n1)
           
-      # 13. Загрузка артефакта в репозиторий (ИСПРАВЛЕНО: версия v4)
-      - name: Upload APK artifact
+          if [ -n "$APK_FILE" ]; then
+            echo "APK_FILE=$APK_FILE" >> $GITHUB_OUTPUT
+            echo "ARTIFACT_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
+            echo "ARTIFACT_TYPE=apk" >> $GITHUB_OUTPUT
+            echo "✅ Найден APK: $APK_FILE"
+          elif [ -n "$AAB_FILE" ]; then
+            echo "APK_FILE=$AAB_FILE" >> $GITHUB_OUTPUT
+            echo "ARTIFACT_NAME=$(basename $AAB_FILE)" >> $GITHUB_OUTPUT
+            echo "ARTIFACT_TYPE=aab" >> $GITHUB_OUTPUT
+            echo "✅ Найден AAB: $AAB_FILE"
+          else
+            echo "❌ Не найден результат сборки!"
+            ls -la bin/
+            exit 1
+          fi
+
+      - name: Загрузка артефакта
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.find-apk.outputs.APK_NAME }}
-          path: ${{ steps.find-apk.outputs.APK_FILE }}
+          name: ordermanager-${{ steps.build.outputs.ARTIFACT_TYPE }}-${{ github.sha }}
+          path: ${{ steps.build.outputs.APK_FILE }}
           retention-days: 30
-          
-      # 14. Создание релиза (только для релизной сборки)
-      - name: Create GitHub Release
-        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Создание релиза (только для релизных сборок)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_type == 'release' }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
+          tag_name: v${{ github.run_number }}
+          name: OrderManager v${{ github.run_number }}
           body: |
-            ## OrderManager v${{ env.VERSION }}
+            ## OrderManager Release Build
             
-            **Сборка:** ${{ env.BUILD_TYPE }}
+            **Сборка:** ${{ github.sha }}
+            **Дата:** ${{ github.event.head_commit.timestamp }}
+            **Архитектура:** arm64-v8a
+            **Android API:** 34
             
-            **Изменения:**
-            - Автоматическая сборка через GitHub Actions
-            - Версия приложения: ${{ env.VERSION }}
-            - Исправлены зависимости и конфигурация
-            - Стабильная версия сборки
-            
-            **Установка:**
-            1. Скачайте файл APK
-            2. Разрешите установку из неизвестных источников
-            3. Установите приложение
-          draft: false
-          prerelease: false
-          
-      # 15. Загрузка в релиз (только для релизной сборки)
-      - name: Upload APK to Release
-        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
-        uses: actions/upload-release-asset@v1
+            ✅ Полностью совместимо с требованиями Google Play 2026
+          files: ${{ steps.build.outputs.APK_FILE }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-apk.outputs.APK_FILE }}
-          asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
-          asset_content_type: application/vnd.android.package-archive
-          
-      # 16. Отправка уведомления о результате
-      - name: Send notification
+
+      - name: Отчет о статусе
         if: always()
         run: |
-          STATUS="${{ job.status }}"
-          echo "=== Build Status: $STATUS ==="
-          
-          if [ "$STATUS" = "success" ]; then
-            echo " Сборка успешно завершена!"
-            echo "APK готов к использованию"
+          echo "======================================"
+          echo "СБОРКА ЗАВЕРШЕНА"
+          echo "Статус: ${{ job.status }}"
+          echo "Артефакт: ${{ steps.build.outputs.ARTIFACT_NAME }}"
+          echo "======================================"
+          if [ "${{ job.status }}" != "success" ]; then
+            echo "❌ Сборка завершилась с ошибкой"
+            exit 1
           else
-            echo " Сборка завершилась с ошибкой"
-            echo "Проверьте логи выше для диагностики"
+            echo "✅ Сборка успешно завершена!"
           fi

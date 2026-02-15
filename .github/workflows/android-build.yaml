@@ -79,25 +79,118 @@ jobs:
             libsqlite3-dev \
             unzip
           
-      # 5. Установка Android SDK
-      - name: Install Android SDK
-        run: |
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-          echo "y" | sdkmanager --licenses
-          
-      # 6. Установка Android Build-Tools (стабильная версия)
-      - name: Install Android Build-Tools
-        run: |
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-          echo "y" | sdkmanager "build-tools;33.0.0"
-          echo "y" | sdkmanager "platform-tools" "platforms;android-33"
-          echo "Build-Tools installed successfully"
-          
-      # 7. Установка Python-зависимостей
+      # 5. Установка Android SDK (ОБНОВЛЕНО!)
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          build-tools: '33.0.0'
+          platforms: 'android-33'
+          ndk: '25.1.8937393'
+          licenses: |
+            android-sdk-preview-license
+            android-sdk-license
+            google-gdk-license
+            google-gdk-license-2
+            google-gdk-license-3
+            google-gdk-license-4
+            google-gdk-license-5
+            google-gdk-license-6
+            google-gdk-license-7
+            google-gdk-license-8
+            google-gdk-license-9
+            google-gdk-license-10
+            google-gdk-license-11
+            google-gdk-license-12
+            google-gdk-license-13
+            google-gdk-license-14
+            google-gdk-license-15
+            google-gdk-license-16
+            google-gdk-license-17
+            google-gdk-license-18
+            google-gdk-license-19
+            google-gdk-license-20
+            google-gdk-license-21
+            google-gdk-license-22
+            google-gdk-license-23
+            google-gdk-license-24
+            google-gdk-license-25
+            google-gdk-license-26
+            google-gdk-license-27
+            google-gdk-license-28
+            google-gdk-license-29
+            google-gdk-license-30
+            google-gdk-license-31
+            google-gdk-license-32
+            google-gdk-license-33
+            google-gdk-license-34
+            google-gdk-license-35
+            google-gdk-license-36
+            google-gdk-license-37
+            google-gdk-license-38
+            google-gdk-license-39
+            google-gdk-license-40
+            google-gdk-license-41
+            google-gdk-license-42
+            google-gdk-license-43
+            google-gdk-license-44
+            google-gdk-license-45
+            google-gdk-license-46
+            google-gdk-license-47
+            google-gdk-license-48
+            google-gdk-license-49
+            google-gdk-license-50
+            google-gdk-license-51
+            google-gdk-license-52
+            google-gdk-license-53
+            google-gdk-license-54
+            google-gdk-license-55
+            google-gdk-license-56
+            google-gdk-license-57
+            google-gdk-license-58
+            google-gdk-license-59
+            google-gdk-license-60
+            google-gdk-license-61
+            google-gdk-license-62
+            google-gdk-license-63
+            google-gdk-license-64
+            google-gdk-license-65
+            google-gdk-license-66
+            google-gdk-license-67
+            google-gdk-license-68
+            google-gdk-license-69
+            google-gdk-license-70
+            google-gdk-license-71
+            google-gdk-license-72
+            google-gdk-license-73
+            google-gdk-license-74
+            google-gdk-license-75
+            google-gdk-license-76
+            google-gdk-license-77
+            google-gdk-license-78
+            google-gdk-license-79
+            google-gdk-license-80
+            google-gdk-license-81
+            google-gdk-license-82
+            google-gdk-license-83
+            google-gdk-license-84
+            google-gdk-license-85
+            google-gdk-license-86
+            google-gdk-license-87
+            google-gdk-license-88
+            google-gdk-license-89
+            google-gdk-license-90
+            google-gdk-license-91
+            google-gdk-license-92
+            google-gdk-license-93
+            google-gdk-license-94
+            google-gdk-license-95
+            google-gdk-license-96
+            google-gdk-license-97
+            google-gdk-license-98
+            google-gdk-license-99
+            google-gdk-license-100
+            
+      # 6. Установка Python-зависимостей
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -108,24 +201,17 @@ jobs:
             pillow>=9.0.0 \
             requests>=2.28.0
           
-      # 8. Создание/обновление buildozer.spec
-      - name: Prepare buildozer.spec
+      # 7. Обновление buildozer.spec
+      - name: Update buildozer.spec
         run: |
-          if [ ! -f buildozer.spec ]; then
-            buildozer init
-          fi
-          python scripts/update_buildozer_spec.py
-          
-      # 9. Обновление buildozer.spec для стабильной версии Build-Tools
-      - name: Update buildozer.spec with stable Build-Tools
-        run: |
-          sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
+          # Установка стабильных версий
           sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
           sed -i 's/android\.minapi\s*=\s*.*/android.minapi = 21/' buildozer.spec
           sed -i 's/android\.ndk\s*=\s*.*/android.ndk = 25b/' buildozer.spec
           sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
+          sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
           
-      # 10. Кэширование .buildozer
+      # 8. Кэширование .buildozer
       - name: Cache buildozer
         uses: actions/cache@v3
         with:
@@ -136,11 +222,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
             
-      # 11. Сборка приложения
+      # 9. Сборка приложения
       - name: Build APK
         id: build
         run: |
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
           if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
             echo "Building RELEASE APK..."
             buildozer -v android release
@@ -149,7 +234,7 @@ jobs:
             buildozer -v android debug
           fi
           
-      # 12. Найти APK файл
+      # 10. Найти APK файл
       - name: Find APK file
         id: find-apk
         run: |
@@ -162,7 +247,7 @@ jobs:
           echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_FILE"
           
-      # 13. Загрузка артефакта
+      # 11. Загрузка артефакта
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -170,7 +255,7 @@ jobs:
           path: ${{ steps.find-apk.outputs.APK_FILE }}
           retention-days: 30
           
-      # 14. Создание релиза (только для релизной сборки)
+      # 12. Создание релиза (только для релизной сборки)
       - name: Create GitHub Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         id: create_release
@@ -196,7 +281,7 @@ jobs:
           draft: false
           prerelease: false
           
-      # 15. Загрузка в релиз
+      # 13. Загрузка в релиз
       - name: Upload APK to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         uses: actions/upload-release-asset@v1
@@ -208,7 +293,7 @@ jobs:
           asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
           asset_content_type: application/vnd.android.package-archive
           
-      # 16. Отправка уведомления
+      # 14. Отправка уведомления
       - name: Send notification
         if: always()
         run: |

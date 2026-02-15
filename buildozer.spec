@@ -57,6 +57,8 @@ license.file = LICENSE
 
 [buildozer]
 
+# В buildozer.spec
+android.build_tools = 33.0.0
 # Команды для выполнения перед сборкой
 build_dir = ./.buildozer
 bin_dir = ./bin

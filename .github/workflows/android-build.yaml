@@ -117,7 +117,7 @@ jobs:
           else
             echo "Building DEBUG APK..."
             buildozer -v android debug
-
+          fi
           
       # 9. Найти APK файл
       - name: Find APK file

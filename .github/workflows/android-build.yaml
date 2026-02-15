@@ -117,11 +117,7 @@ jobs:
           else
             echo "Building DEBUG APK..."
             buildozer -v android debug
-          fi
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_ALIAS_PASSWORD: ${{ secrets.KEY_ALIAS_PASSWORD }}
+
           
       # 9. Найти APK файл
       - name: Find APK file
@@ -157,7 +153,7 @@ jobs:
           body: |
             ## OrderManager v${{ env.VERSION }}
             
-            **Сборка:** ${{ env.BUILD_TYPE | upper }}
+             **Сборка:** ${{ upper(env.BUILD_TYPE) }}
             
             **Изменения:**
             - Автоматическая сборка через GitHub Actions

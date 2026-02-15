@@ -33,13 +33,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         
-      # 2. Настройка Python
+      # 2. Установка Java 17 (ОБЯЗАТЕЛЬНО!)
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      # 3. Настройка Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           
-      # 3. Кэширование зависимостей
+      # 4. Кэширование зависимостей
       - name: Cache pip packages
         uses: actions/cache@v3
         with:
@@ -48,7 +55,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             
-      # 4. Установка системных зависимостей
+      # 5. Установка системных зависимостей
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -68,7 +75,6 @@ jobs:
             libgstreamer1.0 \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
-            openjdk-17-jdk \
             autoconf \
             automake \
             libtool \
@@ -79,7 +85,7 @@ jobs:
             libsqlite3-dev \
             unzip
           
-      # 5. Установка Android SDK (ОБНОВЛЕНО!)
+      # 6. Установка Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
@@ -190,7 +196,38 @@ jobs:
             google-gdk-license-99
             google-gdk-license-100
             
-      # 6. Установка Python-зависимостей
+      # 7. Проверка установки SDK Manager
+      - name: Verify SDK Manager
+        run: |
+          echo "Checking SDK Manager installation..."
+          
+          # Проверка переменных окружения
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "PATH: $PATH"
+          
+          # Проверка наличия SDK Manager
+          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo "SDK Manager found at $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
+          else
+            echo "SDK Manager NOT FOUND!"
+            ls -la $ANDROID_HOME/cmdline-tools/latest/bin
+            exit 1
+          fi
+          
+          # Проверка Java
+          java -version
+          echo "Java version: $(java -version 2>&1 | head -1)"
+          
+          # Проверка PATH
+          echo "PATH: $PATH"
+          
+      # 8. Установка Android Build-Tools
+      - name: Install Android Build-Tools
+        run: |
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platform-tools" "platforms;android-33"
+          
+      # 9. Установка Python-зависимостей
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -201,7 +238,7 @@ jobs:
             pillow>=9.0.0 \
             requests>=2.28.0
           
-      # 7. Обновление buildozer.spec
+      # 10. Обновление buildozer.spec
       - name: Update buildozer.spec
         run: |
           # Установка стабильных версий
@@ -211,7 +248,7 @@ jobs:
           sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
           sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
           
-      # 8. Кэширование .buildozer
+      # 11. Кэширование .buildozer
       - name: Cache buildozer
         uses: actions/cache@v3
         with:
@@ -222,7 +259,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
             
-      # 9. Сборка приложения
+      # 12. Сборка приложения
       - name: Build APK
         id: build
         run: |
@@ -234,7 +271,7 @@ jobs:
             buildozer -v android debug
           fi
           
-      # 10. Найти APK файл
+      # 13. Найти APK файл
       - name: Find APK file
         id: find-apk
         run: |
@@ -247,7 +284,7 @@ jobs:
           echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_FILE"
           
-      # 11. Загрузка артефакта
+      # 14. Загрузка артефакта
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -255,7 +292,7 @@ jobs:
           path: ${{ steps.find-apk.outputs.APK_FILE }}
           retention-days: 30
           
-      # 12. Создание релиза (только для релизной сборки)
+      # 15. Создание релиза (только для релизной сборки)
       - name: Create GitHub Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         id: create_release
@@ -281,7 +318,7 @@ jobs:
           draft: false
           prerelease: false
           
-      # 13. Загрузка в релиз
+      # 16. Загрузка в релиз
       - name: Upload APK to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         uses: actions/upload-release-asset@v1
@@ -293,7 +330,7 @@ jobs:
           asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
           asset_content_type: application/vnd.android.package-archive
           
-      # 14. Отправка уведомления
+      # 17. Отправка уведомления
       - name: Send notification
         if: always()
         run: |

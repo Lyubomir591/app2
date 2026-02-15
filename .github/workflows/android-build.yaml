@@ -1,10 +1,6 @@
-name: Android Build
+name: Android Build (Debug)
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       build_type:
@@ -13,386 +9,70 @@ on:
         default: 'debug'
         type: choice
         options:
-        - debug
-        - release
+          - debug
 
 jobs:
-  build-android:
-    name: Build Android APK
+  build:
     runs-on: ubuntu-latest
-    
     env:
-      APP_NAME: "OrderManager"
-      PACKAGE_NAME: "com.ordermanager.app"
-      VERSION: "1.0.0"
       BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
-      ANDROID_HOME: $HOME/android-sdk
     
     steps:
-      # 1. Checkout кода
       - name: Checkout repository
         uses: actions/checkout@v3
         
-      # 2. Установка Java 17 (КРИТИЧЕСКИ ВАЖНО!)
       - name: Setup Java 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
           
-      # 3. Настройка Python 3.10
-      - name: Set up Python 3.10
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           
-      # 4. Кэширование зависимостей pip
-      - name: Cache pip packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            
-      # 5. Установка системных зависимостей (ИСПРАВЛЕНО)
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
-          # Включаем репозиторий universe
           sudo apt-get update
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository universe
           sudo apt-get update
-          
-          # Установка всех зависимостей
           sudo apt-get install -y \
-            build-essential \
-            git \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libgstreamer1.0 \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            cmake \
-            libssl-dev \
-            libffi-dev \
-            libsqlite3-dev \
-            unzip \
-            libncurses5
-          
-      # 6. Установка Android SDK через официальный action
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          build-tools: '33.0.0'
-          platforms: 'android-33'
-          ndk: '25.1.8937393'
-          licenses: |
-            android-sdk-preview-license
-            android-sdk-license
-            google-gdk-license
-            google-gdk-license-2
-            google-gdk-license-3
-            google-gdk-license-4
-            google-gdk-license-5
-            google-gdk-license-6
-            google-gdk-license-7
-            google-gdk-license-8
-            google-gdk-license-9
-            google-gdk-license-10
-            google-gdk-license-11
-            google-gdk-license-12
-            google-gdk-license-13
-            google-gdk-license-14
-            google-gdk-license-15
-            google-gdk-license-16
-            google-gdk-license-17
-            google-gdk-license-18
-            google-gdk-license-19
-            google-gdk-license-20
-            google-gdk-license-21
-            google-gdk-license-22
-            google-gdk-license-23
-            google-gdk-license-24
-            google-gdk-license-25
-            google-gdk-license-26
-            google-gdk-license-27
-            google-gdk-license-28
-            google-gdk-license-29
-            google-gdk-license-30
-            google-gdk-license-31
-            google-gdk-license-32
-            google-gdk-license-33
-            google-gdk-license-34
-            google-gdk-license-35
-            google-gdk-license-36
-            google-gdk-license-37
-            google-gdk-license-38
-            google-gdk-license-39
-            google-gdk-license-40
-            google-gdk-license-41
-            google-gdk-license-42
-            google-gdk-license-43
-            google-gdk-license-44
-            google-gdk-license-45
-            google-gdk-license-46
-            google-gdk-license-47
-            google-gdk-license-48
-            google-gdk-license-49
-            google-gdk-license-50
-            google-gdk-license-51
-            google-gdk-license-52
-            google-gdk-license-53
-            google-gdk-license-54
-            google-gdk-license-55
-            google-gdk-license-56
-            google-gdk-license-57
-            google-gdk-license-58
-            google-gdk-license-59
-            google-gdk-license-60
-            google-gdk-license-61
-            google-gdk-license-62
-            google-gdk-license-63
-            google-gdk-license-64
-            google-gdk-license-65
-            google-gdk-license-66
-            google-gdk-license-67
-            google-gdk-license-68
-            google-gdk-license-69
-            google-gdk-license-70
-            google-gdk-license-71
-            google-gdk-license-72
-            google-gdk-license-73
-            google-gdk-license-74
-            google-gdk-license-75
-            google-gdk-license-76
-            google-gdk-license-77
-            google-gdk-license-78
-            google-gdk-license-79
-            google-gdk-license-80
-            google-gdk-license-81
-            google-gdk-license-82
-            google-gdk-license-83
-            google-gdk-license-84
-            google-gdk-license-85
-            google-gdk-license-86
-            google-gdk-license-87
-            google-gdk-license-88
-            google-gdk-license-89
-            google-gdk-license-90
-            google-gdk-license-91
-            google-gdk-license-92
-            google-gdk-license-93
-            google-gdk-license-94
-            google-gdk-license-95
-            google-gdk-license-96
-            google-gdk-license-97
-            google-gdk-license-98
-            google-gdk-license-99
-            google-gdk-license-100
+            build-essential git openjdk-17-jdk \
+            libncurses5 zlib1g-dev libffi-dev libssl-dev \
+            autoconf automake libtool pkg-config cmake \
+            unzip libgstreamer1.0 gstreamer1.0-plugins-base
             
-      # 7. Проверка установки и настройки окружения
-      - name: Verify environment setup
+      - name: Install Python packages
         run: |
-          echo "=== Environment Check ==="
-          echo "JAVA_HOME: $JAVA_HOME"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          echo "PATH: $PATH"
+          pip install --upgrade pip
+          pip install buildozer==1.5.0 cython==0.29.33 kivy==2.2.1 pillow requests
           
-          echo -e "\n=== Java Version ==="
-          java -version
-          
-          echo -e "\n=== SDK Manager ==="
-          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
-            echo "SDK Manager: OK"
-          else
-            echo "SDK Manager: NOT FOUND"
-            exit 1
-          fi
-          
-      # 8. Установка Python-зависимостей
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade \
-            buildozer==1.5.0 \
-            cython==0.29.33 \
-            kivy==2.2.1 \
-            pillow>=9.0.0 \
-            requests>=2.28.0
-          
-      # 9. Проверка buildozer.spec и создание при необходимости
-      - name: Check and create buildozer.spec
+      - name: Verify buildozer.spec
         run: |
           if [ ! -f buildozer.spec ]; then
-            echo "buildozer.spec not found, creating default..."
-            buildozer init
-          fi
-          echo "buildozer.spec exists"
-          
-      # 10. Обновление и проверка конфигурации buildozer.spec
-      - name: Update and verify buildozer.spec
-        run: |
-          echo "=== Updating buildozer.spec ==="
-          
-          # Установка стабильных версий Android SDK
-          sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
-          sed -i 's/android\.minapi\s*=\s*.*/android.minapi = 21/' buildozer.spec
-          sed -i 's/android\.ndk\s*=\s*.*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
-          sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
-          
-          # Автоматическое принятие лицензий
-          if ! grep -q "android.accept_sdk_license" buildozer.spec; then
-            echo "android.accept_sdk_license = True" >> buildozer.spec
-          else
-            sed -i 's/android\.accept_sdk_license\s*=\s*.*/android.accept_sdk_license = True/' buildozer.spec
-          fi
-          
-          # Использование современного синтаксиса bootstrap
-          if grep -q "android\.bootstrap" buildozer.spec; then
-            sed -i 's/android\.bootstrap\s*=\s*\(.*\)/p4a.bootstrap = \1/' buildozer.spec
-          elif ! grep -q "p4a\.bootstrap" buildozer.spec; then
-            echo "p4a.bootstrap = sdl2" >> buildozer.spec
-          fi
-          
-          # Проверка конфигурации
-          echo -e "\n=== Buildozer Configuration ==="
-          grep -E "^(android\.api|android\.minapi|android\.ndk|android\.build_tools|p4a\.bootstrap|android\.accept_sdk_license)" buildozer.spec
-          
-      # 11. Кэширование .buildozer для ускорения сборки
-      - name: Cache buildozer
-        uses: actions/cache@v3
-        with:
-          path: |
-            .buildozer
-            ./.buildozer/android/platform/build-arm64-v8a/dists/*/build
-          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-
-            
-      # 12. Сборка приложения
-      - name: Build APK
-        id: build
-        run: |
-          echo "=== Starting APK Build ==="
-          echo "Build Type: ${{ env.BUILD_TYPE }}"
-          
-          if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
-            echo "Building RELEASE APK..."
-            buildozer -v android release
-          else
-            echo "Building DEBUG APK..."
-            buildozer -v android debug
-          fi
-          
-          echo "=== Build Completed ==="
-          
-      # 13. Найти и проверить собранный файл APK
-      - name: Find and verify APK file
-        id: find-apk
-        run: |
-          echo "=== Searching for APK ==="
-          
-          # Поиск файла APK
-          APK_FILE=$(find . -name "*.apk" -type f | grep -E "(debug|release)" | head -n 1)
-          
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK file not found!"
-            echo "Checking bin directory:"
-            ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
+            echo "ERROR: buildozer.spec not found!"
             exit 1
           fi
+          grep "android.accept_sdk_license = True" buildozer.spec || echo "android.accept_sdk_license = True" >> buildozer.spec
           
-          echo "APK found: $APK_FILE"
-          
-          # Проверка размера файла
-          APK_SIZE=$(stat -c%s "$APK_FILE" 2>/dev/null || stat -f%z "$APK_FILE")
-          echo "APK size: $APK_SIZE bytes"
-          
-          # Проверка, что файл не пустой
-          if [ "$APK_SIZE" -lt 1000000 ]; then
-            echo "WARNING: APK file seems too small (< 1MB)"
+      - name: Build APK (DEBUG)
+        run: buildozer -v android debug
+        
+      - name: Find APK
+        id: find-apk
+        run: |
+          APK=$(find . -name "*-debug.apk" -type f | head -1)
+          if [ -z "$APK" ]; then
+            echo "APK not found!"
+            ls -la bin/
+            exit 1
           fi
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
           
-          # Сохранение в вывод
-          echo "APK_FILE=$APK_FILE" >> $GITHUB_OUTPUT
-          echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
-          
-          echo "=== APK Verification Complete ==="
-          
-      # 14. Загрузка артефакта в репозиторий
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.find-apk.outputs.APK_NAME }}
-          path: ${{ steps.find-apk.outputs.APK_FILE }}
-          retention-days: 30
-          
-      # 15. Создание релиза (только для релизной сборки)
-      - name: Create GitHub Release
-        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
-          body: |
-            ## OrderManager v${{ env.VERSION }}
-            
-            **Сборка:** ${{ env.BUILD_TYPE }}
-            
-            **Изменения:**
-            - Автоматическая сборка через GitHub Actions
-            - Версия приложения: ${{ env.VERSION }}
-            - Исправлены зависимости и конфигурация
-            - Стабильная версия сборки
-            
-            **Установка:**
-            1. Скачайте файл APK
-            2. Разрешите установку из неизвестных источников
-            3. Установите приложение
-          draft: false
-          prerelease: false
-          
-      # 16. Загрузка в релиз (только для релизной сборки)
-      - name: Upload APK to Release
-        if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-apk.outputs.APK_FILE }}
-          asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
-          asset_content_type: application/vnd.android.package-archive
-          
-      # 17. Отправка уведомления о результате
-      - name: Send notification
-        if: always()
-        run: |
-          STATUS="${{ job.status }}"
-          echo "=== Build Status: $STATUS ==="
-          
-          if [ "$STATUS" = "success" ]; then
-            echo "✅ Сборка успешно завершена!"
-            echo "APK готов к использованию"
-          else
-            echo "❌ Сборка завершилась с ошибкой"
-            echo "Проверьте логи выше для диагностики"
-          fi
+          name: debug-apk
+          path: ${{ steps.find-apk.outputs.apk_path }}

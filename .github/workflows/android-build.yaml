@@ -153,7 +153,7 @@ jobs:
           body: |
             ## OrderManager v${{ env.VERSION }}
             
-             **Сборка:** ${{ upper(env.BUILD_TYPE) }}
+             **Сборка:** ${{ env.BUILD_TYPE == 'release' && 'RELEASE' || 'DEBUG' }}
             
             **Изменения:**
             - Автоматическая сборка через GitHub Actions

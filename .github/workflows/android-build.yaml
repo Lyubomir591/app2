@@ -26,6 +26,7 @@ jobs:
       PACKAGE_NAME: "com.ordermanager.app"
       VERSION: "1.0.0"
       BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+      ANDROID_HOME: $HOME/android-sdk
     
     steps:
       # 1. Checkout кода
@@ -75,20 +76,39 @@ jobs:
             cmake \
             libssl-dev \
             libffi-dev \
-            libsqlite3-dev
+            libsqlite3-dev \
+            unzip
           
-      # 5. Установка Python-зависимостей
+      # 5. Установка Android SDK
+      - name: Install Android SDK
+        run: |
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          echo "y" | sdkmanager --licenses
+          
+      # 6. Установка Android Build-Tools (стабильная версия)
+      - name: Install Android Build-Tools
+        run: |
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          echo "y" | sdkmanager "build-tools;33.0.0"
+          echo "y" | sdkmanager "platform-tools" "platforms;android-33"
+          echo "Build-Tools installed successfully"
+          
+      # 7. Установка Python-зависимостей
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install --upgrade \
-            buildozer \
+            buildozer==1.5.0 \
             cython==0.29.33 \
-            kivy \
-            pillow \
-            requests
+            kivy==2.2.1 \
+            pillow>=9.0.0 \
+            requests>=2.28.0
           
-      # 6. Создание/обновление buildozer.spec
+      # 8. Создание/обновление buildozer.spec
       - name: Prepare buildozer.spec
         run: |
           if [ ! -f buildozer.spec ]; then
@@ -96,7 +116,16 @@ jobs:
           fi
           python scripts/update_buildozer_spec.py
           
-      # 7. Кэширование .buildozer
+      # 9. Обновление buildozer.spec для стабильной версии Build-Tools
+      - name: Update buildozer.spec with stable Build-Tools
+        run: |
+          sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
+          sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
+          sed -i 's/android\.minapi\s*=\s*.*/android.minapi = 21/' buildozer.spec
+          sed -i 's/android\.ndk\s*=\s*.*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
+          
+      # 10. Кэширование .buildozer
       - name: Cache buildozer
         uses: actions/cache@v3
         with:
@@ -107,11 +136,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
             
-      # 8. Сборка приложения
+      # 11. Сборка приложения
       - name: Build APK
         id: build
         run: |
-          if [ "${{ env.BUILD_TYPE }}" == "release" ]; then
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
             echo "Building RELEASE APK..."
             buildozer -v android release
           else
@@ -119,7 +149,7 @@ jobs:
             buildozer -v android debug
           fi
           
-      # 9. Найти APK файл
+      # 12. Найти APK файл
       - name: Find APK file
         id: find-apk
         run: |
@@ -132,7 +162,7 @@ jobs:
           echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_FILE"
           
-      # 10. Загрузка артефакта
+      # 13. Загрузка артефакта
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -140,7 +170,7 @@ jobs:
           path: ${{ steps.find-apk.outputs.APK_FILE }}
           retention-days: 30
           
-      # 11. Создание релиза (только для релизной сборки)
+      # 14. Создание релиза (только для релизной сборки)
       - name: Create GitHub Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         id: create_release
@@ -153,7 +183,7 @@ jobs:
           body: |
             ## OrderManager v${{ env.VERSION }}
             
-             **Сборка:** ${{ env.BUILD_TYPE == 'release' && 'RELEASE' || 'DEBUG' }}
+            **Сборка:** ${{ env.BUILD_TYPE }}
             
             **Изменения:**
             - Автоматическая сборка через GitHub Actions
@@ -166,7 +196,7 @@ jobs:
           draft: false
           prerelease: false
           
-      # 12. Загрузка в релиз
+      # 15. Загрузка в релиз
       - name: Upload APK to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         uses: actions/upload-release-asset@v1
@@ -178,13 +208,13 @@ jobs:
           asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
           asset_content_type: application/vnd.android.package-archive
           
-      # 13. Отправка уведомления
+      # 16. Отправка уведомления
       - name: Send notification
         if: always()
         run: |
           STATUS="${{ job.status }}"
           echo "Build status: $STATUS"
-          if [ "$STATUS" == "success" ]; then
+          if [ "$STATUS" = "success" ]; then
             echo "✅ Сборка успешно завершена!"
           else
             echo "❌ Сборка завершилась с ошибкой"

@@ -55,10 +55,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             
-      # 5. Установка системных зависимостей
+      # 5. Установка системных зависимостей (ИСПРАВЛЕНО)
       - name: Install system dependencies
         run: |
+          # Включаем репозиторий universe
           sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository universe
+          sudo apt-get update
+          
+          # Установка всех зависимостей
           sudo apt-get install -y \
             build-essential \
             git \
@@ -216,9 +222,6 @@ jobs:
             echo "SDK Manager: NOT FOUND"
             exit 1
           fi
-          
-          echo -e "\n=== Android SDK Path ==="
-          ls -la $ANDROID_HOME
           
       # 8. Установка Python-зависимостей
       - name: Install Python dependencies

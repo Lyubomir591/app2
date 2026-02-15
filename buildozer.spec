@@ -17,12 +17,8 @@ source.include_exts = py,png,jpg,kv,atlas,json
 # Главный файл
 source.main.py = main.py
 
-# Требования (стабильные версии для совместимости)
+# Требования (стабильные версии)
 requirements = python3==3.10.12,kivy==2.2.1,cython==0.29.33,android,pillow,requests
-
-# Иконка и сплэш (закомментированы если файлы отсутствуют)
-# icon.filename = %(source.dir)s/icon.png
-# presplash.filename = %(source.dir)s/splash.png
 
 # Полноэкранный режим
 fullscreen = 0
@@ -33,30 +29,25 @@ orientation = portrait
 # Разрешения
 android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
 
-# API Level (стабильные версии)
+# API Level
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
 android.ndk_api = 21
 android.build_tools = 33.0.0
-
-# Автоматическое принятие лицензий (КРИТИЧЕСКИ ВАЖНО для CI/CD)
 android.accept_sdk_license = True
+
+# Bootstrap (ИСПРАВЛЕНО: заменено на p4a.bootstrap)
+p4a.bootstrap = sdl2
 
 # Архитектуры
 android.archs = arm64-v8a,armeabi-v7a
-
-# Bootstrap (обязательно для Kivy)
-android.bootstrap = sdl2
 
 # Режим отладки
 android.debug = True
 
 # Метаданные
 android.meta_data = 
-
-# Сервисы (если нужны)
-services = 
 
 # Лицензия
 license.name = MIT
@@ -81,8 +72,8 @@ source.exclude_patterns = .gitignore, .github/, README.md, *.pyc, *.pyo
 # Цветные логи
 colored_log = 1
 
-# Очистка перед сборкой (для CI/CD)
+# Очистка перед сборкой
 buildozer.ignore_env = 1
 
-# Использовать локальный репозиторий p4a (для стабильности)
+# Использовать стабильную ветку p4a
 p4a.branch = stable

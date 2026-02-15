@@ -33,20 +33,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         
-      # 2. Установка Java 17 (ОБЯЗАТЕЛЬНО!)
+      # 2. Установка Java 17 (КРИТИЧЕСКИ ВАЖНО!)
       - name: Setup Java 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
           
-      # 3. Настройка Python
+      # 3. Настройка Python 3.10
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           
-      # 4. Кэширование зависимостей
+      # 4. Кэширование зависимостей pip
       - name: Cache pip packages
         uses: actions/cache@v3
         with:
@@ -83,9 +83,10 @@ jobs:
             libssl-dev \
             libffi-dev \
             libsqlite3-dev \
-            unzip
+            unzip \
+            libncurses5
           
-      # 6. Установка Android SDK
+      # 6. Установка Android SDK через официальный action
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
@@ -196,38 +197,30 @@ jobs:
             google-gdk-license-99
             google-gdk-license-100
             
-      # 7. Проверка установки SDK Manager
-      - name: Verify SDK Manager
+      # 7. Проверка установки и настройки окружения
+      - name: Verify environment setup
         run: |
-          echo "Checking SDK Manager installation..."
-          
-          # Проверка переменных окружения
+          echo "=== Environment Check ==="
+          echo "JAVA_HOME: $JAVA_HOME"
           echo "ANDROID_HOME: $ANDROID_HOME"
           echo "PATH: $PATH"
           
-          # Проверка наличия SDK Manager
+          echo -e "\n=== Java Version ==="
+          java -version
+          
+          echo -e "\n=== SDK Manager ==="
           if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            echo "SDK Manager found at $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
             $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
+            echo "SDK Manager: OK"
           else
-            echo "SDK Manager NOT FOUND!"
-            ls -la $ANDROID_HOME/cmdline-tools/latest/bin
+            echo "SDK Manager: NOT FOUND"
             exit 1
           fi
           
-          # Проверка Java
-          java -version
-          echo "Java version: $(java -version 2>&1 | head -1)"
+          echo -e "\n=== Android SDK Path ==="
+          ls -la $ANDROID_HOME
           
-          # Проверка PATH
-          echo "PATH: $PATH"
-          
-      # 8. Установка Android Build-Tools
-      - name: Install Android Build-Tools
-        run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platform-tools" "platforms;android-33"
-          
-      # 9. Установка Python-зависимостей
+      # 8. Установка Python-зависимостей
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -238,17 +231,46 @@ jobs:
             pillow>=9.0.0 \
             requests>=2.28.0
           
-      # 10. Обновление buildozer.spec
-      - name: Update buildozer.spec
+      # 9. Проверка buildozer.spec и создание при необходимости
+      - name: Check and create buildozer.spec
         run: |
-          # Установка стабильных версий
+          if [ ! -f buildozer.spec ]; then
+            echo "buildozer.spec not found, creating default..."
+            buildozer init
+          fi
+          echo "buildozer.spec exists"
+          
+      # 10. Обновление и проверка конфигурации buildozer.spec
+      - name: Update and verify buildozer.spec
+        run: |
+          echo "=== Updating buildozer.spec ==="
+          
+          # Установка стабильных версий Android SDK
           sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
           sed -i 's/android\.minapi\s*=\s*.*/android.minapi = 21/' buildozer.spec
           sed -i 's/android\.ndk\s*=\s*.*/android.ndk = 25b/' buildozer.spec
           sed -i 's/android\.ndk_api\s*=\s*.*/android.ndk_api = 21/' buildozer.spec
           sed -i 's/android\.build_tools\s*=\s*.*/android.build_tools = 33.0.0/' buildozer.spec
           
-      # 11. Кэширование .buildozer
+          # Автоматическое принятие лицензий
+          if ! grep -q "android.accept_sdk_license" buildozer.spec; then
+            echo "android.accept_sdk_license = True" >> buildozer.spec
+          else
+            sed -i 's/android\.accept_sdk_license\s*=\s*.*/android.accept_sdk_license = True/' buildozer.spec
+          fi
+          
+          # Использование современного синтаксиса bootstrap
+          if grep -q "android\.bootstrap" buildozer.spec; then
+            sed -i 's/android\.bootstrap\s*=\s*\(.*\)/p4a.bootstrap = \1/' buildozer.spec
+          elif ! grep -q "p4a\.bootstrap" buildozer.spec; then
+            echo "p4a.bootstrap = sdl2" >> buildozer.spec
+          fi
+          
+          # Проверка конфигурации
+          echo -e "\n=== Buildozer Configuration ==="
+          grep -E "^(android\.api|android\.minapi|android\.ndk|android\.build_tools|p4a\.bootstrap|android\.accept_sdk_license)" buildozer.spec
+          
+      # 11. Кэширование .buildozer для ускорения сборки
       - name: Cache buildozer
         uses: actions/cache@v3
         with:
@@ -263,6 +285,9 @@ jobs:
       - name: Build APK
         id: build
         run: |
+          echo "=== Starting APK Build ==="
+          echo "Build Type: ${{ env.BUILD_TYPE }}"
+          
           if [ "${{ env.BUILD_TYPE }}" = "release" ]; then
             echo "Building RELEASE APK..."
             buildozer -v android release
@@ -271,20 +296,42 @@ jobs:
             buildozer -v android debug
           fi
           
-      # 13. Найти APK файл
-      - name: Find APK file
+          echo "=== Build Completed ==="
+          
+      # 13. Найти и проверить собранный файл APK
+      - name: Find and verify APK file
         id: find-apk
         run: |
+          echo "=== Searching for APK ==="
+          
+          # Поиск файла APK
           APK_FILE=$(find . -name "*.apk" -type f | grep -E "(debug|release)" | head -n 1)
+          
           if [ -z "$APK_FILE" ]; then
-            echo "APK file not found!"
+            echo "ERROR: APK file not found!"
+            echo "Checking bin directory:"
+            ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
             exit 1
           fi
+          
+          echo "APK found: $APK_FILE"
+          
+          # Проверка размера файла
+          APK_SIZE=$(stat -c%s "$APK_FILE" 2>/dev/null || stat -f%z "$APK_FILE")
+          echo "APK size: $APK_SIZE bytes"
+          
+          # Проверка, что файл не пустой
+          if [ "$APK_SIZE" -lt 1000000 ]; then
+            echo "WARNING: APK file seems too small (< 1MB)"
+          fi
+          
+          # Сохранение в вывод
           echo "APK_FILE=$APK_FILE" >> $GITHUB_OUTPUT
           echo "APK_NAME=$(basename $APK_FILE)" >> $GITHUB_OUTPUT
-          echo "Found APK: $APK_FILE"
           
-      # 14. Загрузка артефакта
+          echo "=== APK Verification Complete ==="
+          
+      # 14. Загрузка артефакта в репозиторий
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -310,6 +357,8 @@ jobs:
             **Изменения:**
             - Автоматическая сборка через GitHub Actions
             - Версия приложения: ${{ env.VERSION }}
+            - Исправлены зависимости и конфигурация
+            - Стабильная версия сборки
             
             **Установка:**
             1. Скачайте файл APK
@@ -318,7 +367,7 @@ jobs:
           draft: false
           prerelease: false
           
-      # 16. Загрузка в релиз
+      # 16. Загрузка в релиз (только для релизной сборки)
       - name: Upload APK to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         uses: actions/upload-release-asset@v1
@@ -330,14 +379,17 @@ jobs:
           asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
           asset_content_type: application/vnd.android.package-archive
           
-      # 17. Отправка уведомления
+      # 17. Отправка уведомления о результате
       - name: Send notification
         if: always()
         run: |
           STATUS="${{ job.status }}"
-          echo "Build status: $STATUS"
+          echo "=== Build Status: $STATUS ==="
+          
           if [ "$STATUS" = "success" ]; then
             echo "✅ Сборка успешно завершена!"
+            echo "APK готов к использованию"
           else
             echo "❌ Сборка завершилась с ошибкой"
+            echo "Проверьте логи выше для диагностики"
           fi

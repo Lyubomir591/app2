@@ -55,10 +55,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             
-      # 5. Установка системных зависимостей (ИСПРАВЛЕНО)
+      # 5. Установка системных зависимостей (ИСПРАВЛЕНО: добавлен репозиторий universe)
       - name: Install system dependencies
         run: |
-          # Включаем репозиторий universe
+          # Включаем репозиторий universe для libncurses5
           sudo apt-get update
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository universe
@@ -91,7 +91,7 @@ jobs:
             libsqlite3-dev \
             unzip \
             libncurses5
-          
+            
       # 6. Установка Android SDK через официальный action
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
@@ -234,19 +234,13 @@ jobs:
             pillow>=9.0.0 \
             requests>=2.28.0
           
-      # 9. Проверка buildozer.spec и создание при необходимости
-      - name: Check and create buildozer.spec
+      # 9. Проверка и обновление buildozer.spec
+      - name: Check and update buildozer.spec
         run: |
           if [ ! -f buildozer.spec ]; then
-            echo "buildozer.spec not found, creating default..."
-            buildozer init
+            echo "ERROR: buildozer.spec not found!"
+            exit 1
           fi
-          echo "buildozer.spec exists"
-          
-      # 10. Обновление и проверка конфигурации buildozer.spec
-      - name: Update and verify buildozer.spec
-        run: |
-          echo "=== Updating buildozer.spec ==="
           
           # Установка стабильных версий Android SDK
           sed -i 's/android\.api\s*=\s*.*/android.api = 33/' buildozer.spec
@@ -269,11 +263,10 @@ jobs:
             echo "p4a.bootstrap = sdl2" >> buildozer.spec
           fi
           
-          # Проверка конфигурации
           echo -e "\n=== Buildozer Configuration ==="
           grep -E "^(android\.api|android\.minapi|android\.ndk|android\.build_tools|p4a\.bootstrap|android\.accept_sdk_license)" buildozer.spec
           
-      # 11. Кэширование .buildozer для ускорения сборки
+      # 10. Кэширование .buildozer для ускорения сборки
       - name: Cache buildozer
         uses: actions/cache@v3
         with:
@@ -284,7 +277,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-
             
-      # 12. Сборка приложения
+      # 11. Сборка приложения (ИСПРАВЛЕНО: правильный синтаксис условия)
       - name: Build APK
         id: build
         run: |
@@ -301,7 +294,7 @@ jobs:
           
           echo "=== Build Completed ==="
           
-      # 13. Найти и проверить собранный файл APK
+      # 12. Найти и проверить собранный файл APK
       - name: Find and verify APK file
         id: find-apk
         run: |
@@ -334,7 +327,7 @@ jobs:
           
           echo "=== APK Verification Complete ==="
           
-      # 14. Загрузка артефакта в репозиторий
+      # 13. Загрузка артефакта в репозиторий (ИСПРАВЛЕНО: версия v4)
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -342,7 +335,7 @@ jobs:
           path: ${{ steps.find-apk.outputs.APK_FILE }}
           retention-days: 30
           
-      # 15. Создание релиза (только для релизной сборки)
+      # 14. Создание релиза (только для релизной сборки)
       - name: Create GitHub Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         id: create_release
@@ -370,7 +363,7 @@ jobs:
           draft: false
           prerelease: false
           
-      # 16. Загрузка в релиз (только для релизной сборки)
+      # 15. Загрузка в релиз (только для релизной сборки)
       - name: Upload APK to Release
         if: ${{ github.event_name == 'workflow_dispatch' && env.BUILD_TYPE == 'release' }}
         uses: actions/upload-release-asset@v1
@@ -382,7 +375,7 @@ jobs:
           asset_name: ${{ steps.find-apk.outputs.APK_NAME }}
           asset_content_type: application/vnd.android.package-archive
           
-      # 17. Отправка уведомления о результате
+      # 16. Отправка уведомления о результате
       - name: Send notification
         if: always()
         run: |

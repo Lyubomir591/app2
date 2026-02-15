@@ -26,21 +26,23 @@ fullscreen = 0
 # Ориентация
 orientation = portrait
 
-# Разрешения (для Android 11+)
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE,MANAGE_EXTERNAL_STORAGE
+# Разрешения (для Android 10+)
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
 
-# API Level
+# API Level (СТАБИЛЬНЫЕ ВЕРСИИ!)
 android.api = 33
 android.minapi = 21
 android.ndk = 25b
 android.ndk_api = 21
 android.build_tools = 33.0.0
+
+# КРИТИЧЕСКИ ВАЖНО: автоматическое принятие лицензий
 android.accept_sdk_license = True
 
 # Архитектуры
 android.archs = arm64-v8a,armeabi-v7a
 
-# Bootstrap (обязательно!)
+# Bootstrap (современный синтаксис)
 p4a.bootstrap = sdl2
 
 # Режим отладки
